@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketFlux — Event Details</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #0A0E14; color: #EDEFF2; min-height: 100vh; }
+
+    /* Header */
+    header { background: #111823; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #232B38; }
+    header h1 { font-size: 20px; color: #4CE0D2; }
+    .header-links a { color: #8A93A6; text-decoration: none; margin-left: 16px; font-size: 14px; }
+    .header-links a:hover { color: #4CE0D2; }
+    #userInfo { color: #5FE08A; font-size: 14px; margin-right: 12px; }
+
+    /* Main Content */
+    main { max-width: 700px; margin: 40px auto; padding: 0 24px; }
+    .event-header { margin-bottom: 24px; }
+    .event-header .category { display: inline-block; background: #232B38; color: #8A93A6; padding: 4px 12px; border-radius: 20px; font-size: 13px; margin-bottom: 12px; }
+    .event-header h2 { font-size: 28px; color: #4CE0D2; margin-bottom: 8px; }
+    .event-meta { color: #8A93A6; font-size: 15px; margin-bottom: 6px; }
+    .event-description { background: #111823; padding: 20px; border-radius: 10px; border: 1px solid #232B38; margin: 24px 0; line-height: 1.6; }
+    .price-section { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #111823; border-radius: 10px; border: 1px solid #232B38; margin-bottom: 24px; }
+    .price-section .price { font-size: 24px; font-weight: bold; color: #5FE08A; }
+    .price-section .remaining { color: #8A93A6; font-size: 14px; }
+    .price-section .sold-out { color: #E0824C; font-weight: bold; font-size: 16px; }
+
+    /* Booking Form */
+    .booking-form { background: #111823; padding: 24px; border-radius: 10px; border: 1px solid #232B38; }
+    .booking-form label { display: block; font-size: 14px; color: #8A93A6; margin-bottom: 8px; }
+    .booking-form select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #232B38; background: #0A0E14; color: #EDEFF2; font-size: 14px; margin-bottom: 16px; }
+    .booking-form button { width: 100%; padding: 12px; background: #4CE0D2; color: #08110F; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; }
+    .booking-form button:disabled { background: #232B38; color: #8A93A6; cursor: not-allowed; }
+    .booking-form .total { text-align: center; margin-top: 12px; font-size: 15px; color: #8A93A6; }
+    .booking-form .total span { color: #5FE08A; font-weight: bold; }
+
+    /* Messages */
+    #message { margin-top: 16px; padding: 12px; border-radius: 6px; font-size: 14px; display: none; }
+    #message.success { background: #0A2A1A; color: #5FE08A; border: 1px solid #5FE08A; display: block; }
+    #message.error { background: #2A1A0A; color: #E0824C; border: 1px solid #E0824C; display: block; }
+
+    /* Loading / Error States */
+    .loading { text-align: center; padding: 60px; color: #8A93A6; font-size: 16px; }
+    .not-found { text-align: center; padding: 60px; color: #E0824C; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TicketFlux</h1>
+    <div class="header-links">
+      <span id="userInfo"></span>
+      <a href="index.html">← Back to Events</a>
+      <a href="login.html" id="loginLink">Log In</a>
+      <a href="register.html" id="registerLink">Register</a>
+      <a href="#" id="logoutLink" style="display:none;">Log Out</a>
+    </div>
+  </header>
+
+  <main id="mainContent">
+    <p class="loading">Loading event details...</p>
+  </main>
+
+  <script>
+    // Check if user is logged in
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const userInfoEl = document.getElementById('userInfo');
+    const loginLink = document.getElementById('loginLink');
+    const registerLink = document.getElementById('registerLink');
+    const logoutLink = document.getElementById('logoutLink');
+
+    if (user) {
+      userInfoEl.textContent = `Hi, ${user.name} (${user.role})`;
+      loginLink.style.display = 'none';
+      registerLink.style.display = 'none';
+      logoutLink.style.display = 'inline';
+    }
+
+    // Logout handler
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch('/api/auth/logout', { method: 'POST' });
+      localStorage.removeItem('user');
+      window.location.reload();
+    });
+
+    // Get event ID from URL query parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('id');
+
+    if (!eventId) {
+      document.getElementById('mainContent').innerHTML = '<p class="not-found">No event specified. <a href="index.html" style="color:#4CE0D2;">Browse events</a></p>';
+    } else {
+      loadEventDetails(eventId);
+    }
+
+    // Load event details from API
+    async function loadEventDetails(id) {
+      try {
+        const res = await fetch(`/api/events/${id}`);
+        if (res.status === 404) {
+          document.getElementById('mainContent').innerHTML = '<p class="not-found">Event not found. <a href="index.html" style="color:#4CE0D2;">Browse events</a></p>';
+          return;
+        }
+        const event = await res.json();
+        renderEventDetails(event);
+      } catch (err) {
+        document.getElementById('mainContent').innerHTML = '<p class="not-found">Error loading event. Please try again.</p>';
+      }
+    }
+
+    // Render event details and booking form
+    function renderEventDetails(event) {
+      const remaining = event.capacity - event.tickets_sold;
+      const soldOut = remaining <= 0;
+      const container = document.getElementById('mainContent');
+
+      let bookingSection = '';
+      if (!soldOut && user && user.role === 'attendee') {
+        bookingSection = `
+          <div class="booking-form">
+            <label for="quantity">Number of tickets (max 5)</label>
+            <select id="quantity">
+              <option value="1">1 ticket</option>
+              <option value="2">2 tickets</option>
+              <option value="3">3 tickets</option>
+              <option value="4">4 tickets</option>
+              <option value="5">5 tickets</option>
+            </select>
+            <button onclick="bookTickets()">Book Now</button>
+            <div class="total">Total: <span id="totalPrice">$${Number(event.price).toFixed(2)}</span></div>
+            <div id="message"></div>
+          </div>
+        `;
+      } else if (soldOut) {
+        bookingSection = '<p style="text-align:center; color:#E0824C; font-size:18px; margin-top:24px;">This event is SOLD OUT</p>';
+      } else if (!user) {
+        bookingSection = `<p style="text-align:center; color:#8A93A6; margin-top:24px;"><a href="login.html" style="color:#4CE0D2;">Log in</a> to book tickets for this event.</p>`;
+      } else if (user.role !== 'attendee') {
+        bookingSection = '<p style="text-align:center; color:#8A93A6; margin-top:24px;">Only attendees can book tickets.</p>';
+      }
+
+      container.innerHTML = `
+        <div class="event-header">
+          <span class="category">${event.category || 'General'}</span>
+          <h2>${event.title}</h2>
+          <p class="event-meta"> ${new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+          <p class="event-meta">📍 ${event.venue}</p>
+        </div>
+
+        <div class="event-description">
+          ${event.description || 'No description available.'}
+        </div>
+
+        <div class="price-section">
+          <div class="price">$${Number(event.price).toFixed(2)} per ticket</div>
+          <div class="${soldOut ? 'sold-out' : 'remaining'}">${soldOut ? 'SOLD OUT' : `${remaining} ticket${remaining !== 1 ? 's' : ''} remaining`}</div>
+        </div>
+
+        ${bookingSection}
+      `;
+
+      // Update total price when quantity changes
+      const qtySelect = document.getElementById('quantity');
+      if (qtySelect) {
+        qtySelect.addEventListener('change', () => {
+          const total = Number(event.price) * Number(qtySelect.value);
+          document.getElementById('totalPrice').textContent = `$${total.toFixed(2)}`;
+        });
+      }
+    }
+
+    // Book tickets
+    async function bookTickets() {
+      const qty = Number(document.getElementById('quantity').value);
+      const msgEl = document.getElementById('message');
+
+      // Check if user is logged in
+      if (!user) {
+        msgEl.className = 'error';
+        msgEl.textContent = 'Please log in to book tickets.';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId, quantity: qty })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          msgEl.className = 'success';
+          msgEl.textContent = `Booking successful! Order #${data.orderId}. Redirecting to your tickets...`;
+          setTimeout(() => {
+            window.location.href = `confirmation.html?orderId=${data.orderId}`;
+          }, 2000);
+        } else {
+          msgEl.className = 'error';
+          msgEl.textContent = data.error || 'Booking failed. Please try again.';
+        }
+      } catch (err) {
+        msgEl.className = 'error';
+        msgEl.textContent = 'Network error. Please check your connection and try again.';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TicketFlux — Log In</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #0A0E14; color: #EDEFF2; display: flex; justify-content: center; padding-top: 60px; }
+  form { background: #111823; padding: 30px; border-radius: 12px; width: 300px; }
+  h1 { font-size: 22px; margin-top: 0; }
+  label { display: block; margin-top: 14px; font-size: 13px; color: #8A93A6; }
+  input { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: 1px solid #232B38; background: #0A0E14; color: #EDEFF2; box-sizing: border-box; }
+  button { width: 100%; margin-top: 20px; padding: 12px; background: #4CE0D2; color: #08110F; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+  #message { margin-top: 14px; font-size: 13px; }
+  a { color: #4CE0D2; }
+</style>
+</head>
+<body>
+
+<form id="loginForm">
+  <h1>Log in to TicketFlux</h1>
+
+  <label for="email">Email</label>
+  <input type="email" id="email" required>
+
+  <label for="password">Password</label>
+  <input type="password" id="password" required>
+
+  <button type="submit">Log In</button>
+  <div id="message"></div>
+  <p>Don't have an account? <a href="register.html">Register</a></p>
+
+  <!-- Hidden by default, shown only when user is logged in -->
+<button id="logoutBtn" type="button" style="display:none; margin-top:16px; background:#E0824C; color:white;">Log Out</button>
+</form>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+  const messageBox = document.getElementById('message');
+
+  if (res.ok) {
+    localStorage.setItem('user', JSON.stringify(data.user)); // <-- ADD THIS LINE
+    messageBox.style.color = '#5FE08A';
+    messageBox.textContent = `Welcome, ${data.user.name}! You're logged in.`;
+  } else {
+    messageBox.style.color = '#E0824C';
+    messageBox.textContent = data.error;
+  }
+});
+
+// Show logout button if user is already logged in (from localStorage)
+const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+if (storedUser) {
+  document.getElementById('logoutBtn').style.display = 'block';
+  document.getElementById('message').textContent = `Welcome back, ${storedUser.name}!`;
+  document.getElementById('message').style.color = '#5FE08A';
+}
+
+// Logout handler
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  localStorage.removeItem('user');
+  window.location.reload();
+});
+</script>
+
+</body>
+</html>

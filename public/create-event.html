@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketFlux — Create Event</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #0A0E14; color: #EDEFF2; min-height: 100vh; }
+
+    /* Header */
+    header { background: #111823; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #232B38; }
+    header h1 { font-size: 20px; color: #4CE0D2; }
+    .header-links a { color: #8A93A6; text-decoration: none; margin-left: 16px; font-size: 14px; }
+    .header-links a:hover { color: #4CE0D2; }
+    #userInfo { color: #5FE08A; font-size: 14px; margin-right: 12px; }
+
+    /* Form Container */
+    main { max-width: 600px; margin: 40px auto; padding: 0 24px; }
+    .form-container { background: #111823; padding: 30px; border-radius: 12px; border: 1px solid #232B38; }
+    .form-container h2 { font-size: 22px; color: #4CE0D2; margin-bottom: 20px; }
+
+    /* Form Fields */
+    label { display: block; margin-top: 16px; font-size: 14px; color: #8A93A6; margin-bottom: 6px; }
+    input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #232B38; background: #0A0E14; color: #EDEFF2; font-size: 14px; box-sizing: border-box; }
+    textarea { resize: vertical; min-height: 80px; }
+    .row { display: flex; gap: 16px; }
+    .row > div { flex: 1; }
+
+    /* Submit Button */
+    button[type="submit"] { width: 100%; margin-top: 24px; padding: 12px; background: #4CE0D2; color: #08110F; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; }
+    button[type="submit"]:disabled { background: #232B38; color: #8A93A6; cursor: not-allowed; }
+
+    /* Messages */
+    #message { margin-top: 16px; padding: 12px; border-radius: 6px; font-size: 14px; display: none; }
+    #message.success { background: #0A2A1A; color: #5FE08A; border: 1px solid #5FE08A; display: block; }
+    #message.error { background: #2A1A0A; color: #E0824C; border: 1px solid #E0824C; display: block; }
+
+    /* Access Denied */
+    .access-denied { text-align: center; padding: 60px; color: #E0824C; font-size: 18px; }
+    .access-denied a { color: #4CE0D2; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TicketFlux</h1>
+    <div class="header-links">
+      <span id="userInfo"></span>
+      <a href="index.html">Browse Events</a>
+      <a href="#" id="logoutLink" style="display:none;">Log Out</a>
+    </div>
+  </header>
+
+  <main id="mainContent">
+    <p class="access-denied">Please <a href="login.html">log in</a> as an organizer to create events.</p>
+  </main>
+
+  <script>
+    // Check if user is logged in and is an organizer
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const userInfoEl = document.getElementById('userInfo');
+    const logoutLink = document.getElementById('logoutLink');
+    const mainContent = document.getElementById('mainContent');
+
+    if (!user) {
+      // Not logged in - show access denied message
+      mainContent.innerHTML = '<p class="access-denied">Please <a href="login.html">log in</a> as an organizer to create events.</p>';
+    } else if (user.role !== 'organizer') {
+      // Logged in but not an organizer
+      userInfoEl.textContent = `Hi, ${user.name}`;
+      logoutLink.style.display = 'inline';
+      mainContent.innerHTML = `<p class="access-denied">Only organizers can create events. <a href="index.html">Browse events</a></p>`;
+    } else {
+      // Logged in as organizer - show the form
+      userInfoEl.textContent = `Hi, ${user.name} (Organizer)`;
+      logoutLink.style.display = 'inline';
+
+      mainContent.innerHTML = `
+        <div class="form-container">
+          <h2>Create New Event</h2>
+          <form id="createEventForm">
+            <label for="title">Event Title *</label>
+            <input type="text" id="title" required placeholder="e.g., Summer Music Festival">
+
+            <label for="description">Description</label>
+            <textarea id="description" placeholder="Describe your event..."></textarea>
+
+            <div class="row">
+              <div>
+                <label for="category">Category</label>
+                <select id="category">
+                  <option value="Concert">Concert</option>
+                  <option value="Conference">Conference</option>
+                  <option value="Sports">Sports</option>
+                  <option value="Church">Church</option>
+                  <option value="Workshop">Workshop</option>
+                  <option value="Holiday">Holiday</option> <!-- NEW LINE -->
+                </select>
+              </div>
+              <div>
+                <label for="venue">Venue *</label>
+                <input type="text" id="venue" required placeholder="e.g., City Convention Center">
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label for="event_date">Date & Time *</label>
+                <input type="datetime-local" id="event_date" required>
+              </div>
+              <div>
+                <label for="price">Price per Ticket ($) *</label>
+                <input type="number" id="price" required min="0.01" step="0.01" placeholder="0.00">
+              </div>
+            </div>
+
+            <label for="capacity">Total Capacity *</label>
+            <input type="number" id="capacity" required min="1" placeholder="e.g., 100">
+
+            <button type="submit">Create Event</button>
+            <div id="message"></div>
+          </form>
+        </div>
+      `;
+
+      // Handle form submission
+      document.getElementById('createEventForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msgEl = document.getElementById('message');
+
+        const formData = {
+          title: document.getElementById('title').value.trim(),
+          description: document.getElementById('description').value.trim(),
+          category: document.getElementById('category').value,
+          venue: document.getElementById('venue').value.trim(),
+          event_date: document.getElementById('event_date').value,
+          price: Number(document.getElementById('price').value),
+          capacity: Number(document.getElementById('capacity').value)
+        };
+
+        try {
+          const res = await fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+          });
+          const data = await res.json();
+
+          if (res.ok) {
+            msgEl.className = 'success';
+            msgEl.textContent = `Event created successfully! Redirecting to event details...`;
+            setTimeout(() => {
+              window.location.href = `event-details.html?id=${data.eventId}`;
+            }, 1500);
+          } else {
+            msgEl.className = 'error';
+            msgEl.textContent = data.error || 'Failed to create event. Please try again.';
+          }
+        } catch (err) {
+          msgEl.className = 'error';
+          msgEl.textContent = 'Network error. Please check your connection and try again.';
+        }
+      });
+    }
+
+    // Logout handler
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch('/api/auth/logout', { method: 'POST' });
+      localStorage.removeItem('user');
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TicketFlux — Register</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #0A0E14; color: #EDEFF2; display: flex; justify-content: center; padding-top: 60px; }
+  form { background: #111823; padding: 30px; border-radius: 12px; width: 300px; }
+  h1 { font-size: 22px; margin-top: 0; }
+  label { display: block; margin-top: 14px; font-size: 13px; color: #8A93A6; }
+  input, select { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: 1px solid #232B38; background: #0A0E14; color: #EDEFF2; box-sizing: border-box; }
+  button { width: 100%; margin-top: 20px; padding: 12px; background: #4CE0D2; color: #08110F; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+  #message { margin-top: 14px; font-size: 13px; }
+  a { color: #4CE0D2; }
+</style>
+</head>
+<body>
+
+<form id="registerForm">
+  <h1>Create your account</h1>
+
+  <label for="name">Full name</label>
+  <input type="text" id="name" required>
+
+  <label for="email">Email</label>
+  <input type="email" id="email" required>
+
+  <label for="password">Password (min 8 characters)</label>
+  <input type="password" id="password" required minlength="8">
+
+  <label for="role">I am a...</label>
+  <select id="role">
+    <option value="attendee">Attendee (I want to buy tickets)</option>
+    <option value="organizer">Organizer (I want to host events)</option>
+  </select>
+
+  <button type="submit">Register</button>
+  <div id="message"></div>
+  <p>Already have an account? <a href="login.html">Log in</a></p>
+</form>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const name = document.getElementById('name').value;
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const role = document.getElementById('role').value;
+
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, role })
+  });
+
+  const data = await res.json();
+  const messageBox = document.getElementById('message');
+
+  if (res.ok) {
+    messageBox.style.color = '#5FE08A';
+    messageBox.textContent = data.message + ' You can now log in.';
+  } else {
+    messageBox.style.color = '#E0824C';
+    messageBox.textContent = data.error;
+  }
+});
+</script>
+
+</body>
+</html>

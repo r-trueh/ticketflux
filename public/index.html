@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketFlux — Browse Events</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #0A0E14; color: #EDEFF2; min-height: 100vh; }
+
+    /* Header */
+    header { background: #111823; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #232B38; }
+    header h1 { font-size: 20px; color: #4CE0D2; }
+    .header-links a { color: #8A93A6; text-decoration: none; margin-left: 16px; font-size: 14px; }
+    .header-links a:hover { color: #4CE0D2; }
+    #userInfo { color: #5FE08A; font-size: 14px; margin-right: 12px; }
+
+    /* Search & Filter Bar */
+    .search-bar { display: flex; gap: 12px; padding: 20px 24px; max-width: 900px; margin: 0 auto; flex-wrap: wrap; }
+    .search-bar input, .search-bar select { padding: 10px 14px; border-radius: 6px; border: 1px solid #232B38; background: #111823; color: #EDEFF2; font-size: 14px; }
+    .search-bar input { flex: 1; min-width: 200px; }
+    .search-bar select { min-width: 150px; }
+    .search-bar button { padding: 10px 20px; background: #4CE0D2; color: #08110F; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+    /* Events Grid */
+    .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+    .event-card { background: #111823; border: 1px solid #232B38; border-radius: 12px; padding: 20px; transition: border-color 0.2s; }
+    .event-card:hover { border-color: #4CE0D2; }
+    .event-card h2 { font-size: 18px; margin-bottom: 8px; color: #4CE0D2; }
+    .event-card .category { display: inline-block; background: #232B38; color: #8A93A6; padding: 3px 10px; border-radius: 20px; font-size: 12px; margin-bottom: 10px; }
+    .event-card p { font-size: 14px; color: #8A93A6; margin-bottom: 6px; }
+    .event-card .price { font-size: 16px; font-weight: bold; color: #5FE08A; margin-top: 10px; }
+    .event-card .sold-out { color: #E0824C; font-weight: bold; }
+    .event-card a { display: inline-block; margin-top: 12px; padding: 8px 16px; background: #4CE0D2; color: #08110F; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; }
+
+    /* Empty State */
+    .empty-state { text-align: center; padding: 60px 24px; color: #8A93A6; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TicketFlux</h1>
+    <div class="header-links">
+      <span id="userInfo"></span>
+      <a href="login.html" id="loginLink">Log In</a>
+      <a href="register.html" id="registerLink">Register</a>
+      <a href="#" id="logoutLink" style="display:none;">Log Out</a>
+    </div>
+  </header>
+
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Search events by title...">
+    <select id="categoryFilter">
+      <option value="">All Categories</option>
+      <option value="Concert">Concert</option>
+      <option value="Conference">Conference</option>
+      <option value="Sports">Sports</option>
+      <option value="Church">Church</option>
+      <option value="Workshop">Workshop</option>
+    </select>
+    <button onclick="loadEvents()">Search</button>
+  </div>
+
+  <div id="eventsContainer" class="events-grid"></div>
+
+  <script>
+    // Check if user is logged in (from session stored in localStorage after login)
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const userInfoEl = document.getElementById('userInfo');
+    const loginLink = document.getElementById('loginLink');
+    const registerLink = document.getElementById('registerLink');
+    const logoutLink = document.getElementById('logoutLink');
+
+    if (user) {
+      userInfoEl.textContent = `Hi, ${user.name} (${user.role})`;
+      loginLink.style.display = 'none';
+      registerLink.style.display = 'none';
+      logoutLink.style.display = 'inline';
+    }
+
+    // Logout handler
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch('/api/auth/logout', { method: 'POST' });
+      localStorage.removeItem('user');
+      window.location.reload();
+    });
+
+    // Load events from API
+    async function loadEvents() {
+      const search = document.getElementById('searchInput').value.trim();
+      const category = document.getElementById('categoryFilter').value;
+      let url = '/api/events?';
+      if (search) url += `search=${encodeURIComponent(search)}&`;
+      if (category) url += `category=${encodeURIComponent(category)}&`;
+
+      try {
+        const res = await fetch(url);
+        const events = await res.json();
+        renderEvents(events);
+      } catch (err) {
+        document.getElementById('eventsContainer').innerHTML = '<p class="empty-state">Error loading events. Please try again.</p>';
+      }
+    }
+
+    // Render event cards
+    function renderEvents(events) {
+      const container = document.getElementById('eventsContainer');
+      if (!events || events.length === 0) {
+        container.innerHTML = '<p class="empty-state">No upcoming events found. Try a different search or check back later!</p>';
+        return;
+      }
+
+      container.innerHTML = events.map(event => {
+        const remaining = event.capacity - event.tickets_sold;
+        const soldOut = remaining <= 0;
+        return `
+          <div class="event-card">
+            <span class="category">${event.category || 'General'}</span>
+            <h2>${event.title}</h2>
+            <p>📅 ${new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <p>📍 ${event.venue}</p>
+            <p class="price">$${Number(event.price).toFixed(2)}</p>
+            <p class="${soldOut ? 'sold-out' : ''}">${soldOut ? 'SOLD OUT' : `${remaining} ticket${remaining !== 1 ? 's' : ''} remaining`}</p>
+            <a href="event-details.html?id=${event.id}">View Details →</a>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Load events on page load
+    loadEvents();
+  </script>
+</body>
+</html>
